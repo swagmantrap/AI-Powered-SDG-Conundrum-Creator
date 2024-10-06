@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI-Powered SDG Conundrum creator - Login</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #e0e5ec;
+        }
+        .login-container {
+            background-color: #e0e5ec;
+            padding: 2rem;
+            border-radius: 20px;
+            box-shadow: 
+                9px 9px 16px rgb(163,177,198,0.6),
+                -9px -9px 16px rgba(255,255,255, 0.5);
+            width: 300px;
+        }
+        h2 {
+            color: #4A4A4A;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .input-group {
+            margin-bottom: 20px;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            border: none;
+            background-color: #e0e5ec;
+            border-radius: 10px;
+            box-shadow: 
+                inset 2px 2px 5px #babecc,
+                inset -5px -5px 10px #ffffff;
+            transition: all 0.3s ease-in-out;
+        }
+        input:focus {
+            box-shadow: 
+                inset 1px 1px 2px #babecc,
+                inset -1px -1px 2px #ffffff;
+            outline: none;
+        }
+        button {
+            width: 100%;
+            padding: 10px;
+            border: none;
+            border-radius: 10px;
+            background-color: #e0e5ec;
+            color: #4A4A4A;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 
+                5px 5px 10px #babecc,
+                -5px -5px 10px #ffffff;
+            transition: all 0.3s ease-in-out;
+        }
+        button:hover {
+            box-shadow: 
+                2px 2px 5px #babecc,
+                -2px -2px 5px #ffffff;
+        }
+        button:active {
+            box-shadow: 
+                inset 1px 1px 2px #babecc,
+                inset -1px -1px 2px #ffffff;
+        }
+        .prototype-buttons {
+            margin-top: 20px;
+            display: flex;
+            justify-content: space-between;
+        }
+        .prototype-buttons button {
+            width: 48%;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <h2>SDG Learning System</h2>
+        <div class="input-group">
+            <input type="text" id="username" placeholder="Username" required>
+        </div>
+        <div class="input-group">
+            <input type="password" id="password" placeholder="Password" required>
+        </div>
+        <button onclick="login()">Login</button>
+        
+        <!-- Prototype navigation buttons -->
+        <div class="prototype-buttons">
+            <button onclick="goToTeacherPage()">Go to Teacher's Page</button>
+            <button onclick="goToStudentPage()">Go to Student's Page</button>
+        </div>
+    </div>
+
+    <script>
+        function login() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            // Simple authentication logic (replace with proper authentication in a real system)
+            if (username === 'teacher' && password === 'teacherpass') {
+                localStorage.setItem('userRole', 'teacher');
+                window.location.href = 'teacher.html';
+            } else if (username === 'student' && password === 'studentpass') {
+                localStorage.setItem('userRole', 'student');
+                window.location.href = 'student.html';
+            } else {
+                alert('Invalid username or password');
+            }
+        }
+
+        // Functions for prototype navigation
+        function goToTeacherPage() {
+            localStorage.setItem('userRole', 'teacher');
+            window.location.href = 'teacher.html';
+        }
+
+        function goToStudentPage() {
+            localStorage.setItem('userRole', 'student');
+            window.location.href = 'student.html';
+        }
+    </script>
+</body>
+</html>

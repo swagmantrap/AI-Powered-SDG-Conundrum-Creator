@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SDG Learning - Student Assignments</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+        .container {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        h1, h2 {
+            color: #333;
+        }
+        .logout-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            padding: 10px 20px;
+            background-color: #f44336;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .logout-btn:hover {
+            background-color: #d32f2f;
+        }
+        .assignment {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #e7f3ff;
+            border-radius: 5px;
+        }
+        .assignment-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .viewpoint {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #f0f0f0;
+            border-radius: 5px;
+        }
+        .submission-form {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f0f0f0;
+            border-radius: 5px;
+        }
+        textarea {
+            width: 100%;
+            height: 100px;
+            margin-bottom: 10px;
+            padding: 5px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .video-container {
+            margin-top: 10px;
+        }
+        video {
+            max-width: 100%;
+            margin-top: 10px;
+        }
+        button {
+            padding: 10px 15px;
+            margin-right: 5px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .open-btn {
+            background-color: #2196F3;
+        }
+        .open-btn:hover {
+            background-color: #1976D2;
+        }
+    </style>
+</head>
+<body>
+    <button class="logout-btn" onclick="logout()">Logout</button>
+    <div class="container">
+        <h1>Student Assignments</h1>
+        <p>Welcome to your assignment page. Here you will find assignments related to SDG Learning.</p>
+        
+        <div id="assignments-container">
+            <!-- Assignments will be loaded here -->
+        </div>
+    </div>
+
+    <script>
+        // Check if user is logged in as student
+        if (localStorage.getItem('userRole') !== 'student') {
+            window.location.href = 'index.html';
+        }
+
+        function logout() {
+            localStorage.removeItem('userRole');
+            window.location.href = 'index.html';
+        }
+
+        function loadAssignments() {
+            const assignmentsContainer = document.getElementById('assignments-container');
+            const assignments = JSON.parse(localStorage.getItem('assignments') || '[]');
+
+            if (assignments.length === 0) {
+                assignmentsContainer.innerHTML = '<p>No assignments available at the moment.</p>';
+                return;
+            }
+
+            assignments.forEach((assignment, index) => {
+                const assignmentHtml = `
+                    <div class="assignment">
+                        <div class="assignment-header">
+                            <h3>Assignment ${index + 1}</h3>
+                            <button class="open-btn" onclick="toggleAssignment(${index})">Open Assignment</button>
+                        </div>
+                        <div id="assignment-content-${index}" class="assignment-content" style="display: none;">
+                            <p><strong>Conundrum:</strong> ${assignment.conundrum}</p>
+                            <h4>Viewpoints to Consider:</h4>
+                            ${assignment.viewpoints.map((vp, vpIndex) => `
+                                <div class="viewpoint">
+                                    <p><strong>Viewpoint ${vpIndex + 1}:</strong> ${vp.text}</p>
+                                    <p><strong>Activity:</strong> ${vp.activity}</p>
+                                </div>
+                            `).join('')}
+                            <div class="submission-form">
+                                <h4>Submit Your Answer</h4>
+                                ${assignment.submissionType === 'text' ? `
+                                    <textarea id="text-answer-${index}" placeholder="Type your answer here"></textarea>
+                                ` : `
+                                    <div class="video-container">
+                                        <video id="video-preview-${index}" autoplay muted style="display: none;"></video>
+                                        <video id="recorded-video-${index}" controls style="display: none;"></video>
+                                        <div>
+                                            <button onclick="startRecording(${index})">Start Recording</button>
+                                            <button onclick="stopRecording(${index})" style="display: none;">Stop Recording</button>
+                                            <button onclick="retakeVideo(${index})" style="display: none;">Retake Video</button>
+                                        </div>
+                                    </div>
+                                `}
+                                <button onclick="submitAssignment(${index})">Submit</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                assignmentsContainer.innerHTML += assignmentHtml;
+            });
+        }
+
+        function toggleAssignment(index) {
+            const content = document.getElementById(`assignment-content-${index}`);
+            const button = content.previousElementSibling.querySelector('.open-btn');
+            if (content.style.display === 'none') {
+                content.style.display = 'block';
+                button.textContent = 'Close Assignment';
+            } else {
+                content.style.display = 'none';
+                button.textContent = 'Open Assignment';
+            }
+        }
+
+        let mediaRecorder;
+        let recordedChunks = [];
+        let stream;
+
+        function startRecording(index) {
+            navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+                .then(videoStream => {
+                    stream = videoStream;
+                    const videoPreview = document.getElementById(`video-preview-${index}`);
+                    videoPreview.srcObject = stream;
+                    videoPreview.style.display = 'block';
+
+                    mediaRecorder = new MediaRecorder(stream);
+                    mediaRecorder.ondataavailable = (event) => {
+                        if (event.data.size > 0) {
+                            recordedChunks.push(event.data);
+                        }
+                    };
+                    mediaRecorder.onstop = () => {
+                        const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                        const videoURL = URL.createObjectURL(blob);
+                        const recordedVideo = document.getElementById(`recorded-video-${index}`);
+                        recordedVideo.src = videoURL;
+                        recordedVideo.style.display = 'block';
+                        videoPreview.style.display = 'none';
+                    };
+                    mediaRecorder.start();
+                    document.querySelector(`#assignment-content-${index} button:nth-child(1)`).style.display = 'none';
+                    document.querySelector(`#assignment-content-${index} button:nth-child(2)`).style.display = 'inline-block';
+                });
+        }
+
+        function stopRecording(index) {
+            mediaRecorder.stop();
+            stream.getTracks().forEach(track => track.stop());
+            document.querySelector(`#assignment-content-${index} button:nth-child(1)`).style.display = 'none';
+            document.querySelector(`#assignment-content-${index} button:nth-child(2)`).style.display = 'none';
+            document.querySelector(`#assignment-content-${index} button:nth-child(3)`).style.display = 'inline-block';
+        }
+
+        function retakeVideo(index) {
+            recordedChunks = [];
+            document.getElementById(`recorded-video-${index}`).style.display = 'none';
+            document.querySelector(`#assignment-content-${index} button:nth-child(1)`).style.display = 'inline-block';
+            document.querySelector(`#assignment-content-${index} button:nth-child(3)`).style.display = 'none';
+        }
+
+        function submitAssignment(index) {
+            const assignment = JSON.parse(localStorage.getItem('assignments'))[index];
+            let submission = {
+                student: 'Student Name', // In a real app, this would be the logged-in student's name
+                assignmentId: index
+            };
+
+            if (assignment.submissionType === 'text') {
+                const textAnswer = document.getElementById(`text-answer-${index}`).value;
+                if (textAnswer.trim() === '') {
+                    alert('Please provide a text answer before submitting.');
+                    return;
+                }
+                submission.type = 'text';
+                submission.content = textAnswer;
+                saveSubmission(submission);
+            } else if (assignment.submissionType === 'video') {
+                if (recordedChunks.length === 0) {
+                    alert('Please record a video before submitting.');
+                    return;
+                }
+                const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                submission.type = 'video';
+                
+                // Convert blob to base64
+                const reader = new FileReader();
+                reader.readAsDataURL(blob);
+                reader.onloadend = function() {
+                    submission.content = reader.result;
+                    saveSubmission(submission);
+                }
+            }
+        }
+
+        function saveSubmission(submission) {
+            let submissions = JSON.parse(localStorage.getItem('studentSubmissions') || '[]');
+            submissions.push(submission);
+            localStorage.setItem('studentSubmissions', JSON.stringify(submissions));
+
+            alert('Assignment submitted successfully!');
+            // Reset the form
+            if (submission.type === 'text') {
+                document.getElementById(`text-answer-${submission.assignmentId}`).value = '';
+            } else if (submission.type === 'video') {
+                document.getElementById(`video-preview-${submission.assignmentId}`).style.display = 'none';
+                document.getElementById(`recorded-video-${submission.assignmentId}`).style.display = 'none';
+                document.querySelector(`#assignment-content-${submission.assignmentId} button:nth-child(1)`).style.display = 'inline-block';
+                document.querySelector(`#assignment-content-${submission.assignmentId} button:nth-child(2)`).style.display = 'none';
+                document.querySelector(`#assignment-content-${submission.assignmentId} button:nth-child(3)`).style.display = 'none';
+                recordedChunks = [];
+            }
+        }
+
+        // Load assignments when the page loads
+        window.onload = loadAssignments;
+    </script>
+</body>
+</html>

@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SDG Learning Tool - Teacher</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+        .container {
+            text-align: center;
+        }
+        h1, h2 {
+            color: #333;
+        }
+        #file-upload, #generateBtn {
+            margin: 20px 0;
+        }
+        #conundrum-container, #viewpoints-container, #student-submissions {
+            margin-top: 30px;
+            padding: 20px;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            text-align: left;
+        }
+        #conundrum, .viewpoint {
+            font-size: 16px;
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+        button {
+            font-size: 16px;
+            padding: 10px 20px;
+            cursor: pointer;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #loading {
+            display: none;
+            color: #666;
+            font-style: italic;
+        }
+        #error-message {
+            color: red;
+            margin-top: 10px;
+        }
+        .activity-dropdown {
+            margin-top: 10px;
+        }
+        .activity-content {
+            display: none;
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+        .logout-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background-color: #f44336;
+        }
+        .logout-btn:hover {
+            background-color: #d32f2f;
+        }
+        .assign-btn {
+            background-color: #2196F3;
+            margin-top: 10px;
+        }
+        .assign-btn:hover {
+            background-color: #1976D2;
+        }
+        .submission-options {
+            margin-top: 20px;
+        }
+        .submission-option {
+            margin-right: 10px;
+        }
+        .submission {
+            margin-bottom: 20px;
+            padding: 10px;
+            background-color: #f0f0f0;
+            border-radius: 5px;
+        }
+        .submission video {
+            max-width: 100%;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <button class="logout-btn" onclick="logout()">Logout</button>
+    <div class="container">
+        <h1>SDG Learning Tool - Teacher View</h1>
+        <input type="file" id="file-upload" accept="image/*">
+        <button id="generateBtn" disabled>Generate Conundrum</button>
+        <p id="loading">Processing... This may take a moment.</p>
+        <p id="error-message"></p>
+        <div id="conundrum-container">
+            <h2>Conundrum</h2>
+            <p id="conundrum">Upload an image of the textbook chapter and click "Generate Conundrum" to start.</p>
+            <div class="submission-options">
+                <label>Submission Type:</label>
+                <input type="radio" id="text-submission" name="submission-type" class="submission-option" checked>
+                <label for="text-submission">Text</label>
+                <input type="radio" id="video-submission" name="submission-type" class="submission-option">
+                <label for="video-submission">Video</label>
+            </div>
+            <button id="assignBtn" class="assign-btn" style="display: none;" onclick="assignConundrum()">Assign to Students</button>
+        </div>
+        <div id="viewpoints-container">
+            <h2>Viewpoints to Consider</h2>
+            <div id="viewpoints"></div>
+        </div>
+        <div id="student-submissions">
+            <h2>Student Submissions</h2>
+            <div id="submissions-list"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_KEY = 'AIzaSyCkE93H5xTEBrfYUoOV8O0p3Xdbi5tvM2M'; // Replace with your actual API key
+        const API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro-002:generateContent';
+
+        let uploadedImage = null;
+        let currentConundrum = null;
+
+        // Check if user is logged in as teacher
+        if (localStorage.getItem('userRole') !== 'teacher') {
+            window.location.href = 'index.html';
+        }
+
+        function logout() {
+            localStorage.removeItem('userRole');
+            window.location.href = 'index.html';
+        }
+
+        document.getElementById('file-upload').addEventListener('change', (event) => {
+            uploadedImage = event.target.files[0];
+            document.getElementById('generateBtn').disabled = !uploadedImage;
+            console.log('File selected:', uploadedImage.name, 'Size:', uploadedImage.size, 'Type:', uploadedImage.type);
+        });
+
+        function cleanMarkdownJSON(text) {
+            text = text.replace(/```json\s?|```/g, '');
+            return text.trim();
+        }
+
+        async function generateConundrum() {
+            if (!uploadedImage) return;
+
+            const loading = document.getElementById('loading');
+            const errorMessage = document.getElementById('error-message');
+            loading.style.display = 'block';
+            errorMessage.textContent = '';
+            document.getElementById('conundrum').textContent = '';
+            document.getElementById('viewpoints').innerHTML = '';
+            document.getElementById('assignBtn').style.display = 'none';
+
+            try {
+                console.log('Starting conundrum generation...');
+                const imageData = await readFileAsDataURL(uploadedImage);
+                console.log('Image converted to Data URL');
+
+                const prompt = `Analyze this textbook chapter image. Then, create a thought-provoking conundrum related to a UN Sustainable Development Goal that's relevant to the chapter content. After that, provide 3 different viewpoints that students could consider when thinking about this conundrum. For each viewpoint, also suggest a short activity that helps students explore that perspective. Format the response as JSON with keys: "conundrum", "viewpoints" (an array of objects, each with "text" and "activity" properties).`;
+
+                console.log('Sending request to Gemini API...');
+                const response = await fetch(`${API_URL}?key=${API_KEY}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [
+                            {
+                                parts: [
+                                    { text: prompt },
+                                    { inline_data: { mime_type: uploadedImage.type, data: imageData.split(',')[1] } }
+                                ]
+                            }
+                        ],
+                        generationConfig: {
+                            temperature: 0.7,
+                            topK: 40,
+                            topP: 0.95,
+                            maxOutputTokens: 1024,
+                        },
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(`HTTP error! status: ${response.status}, message: ${JSON.stringify(errorData)}`);
+                }
+
+                const data = await response.json();
+                console.log('Received response from Gemini API:', data);
+
+                if (!data.candidates || data.candidates.length === 0) {
+                    throw new Error('No valid response from the API');
+                }
+
+                const cleanedText = cleanMarkdownJSON(data.candidates[0].content.parts[0].text);
+                const result = JSON.parse(cleanedText);
+                console.log('Parsed result:', result);
+
+                currentConundrum = result;
+                document.getElementById('conundrum').textContent = result.conundrum;
+                document.getElementById('assignBtn').style.display = 'inline-block';
+                
+                const viewpointsHtml = result.viewpoints.map((vp, index) => `
+                    <div class="viewpoint">
+                        <strong>Viewpoint ${index + 1}:</strong> ${vp.text}
+                        <div class="activity-dropdown">
+                            <button onclick="toggleActivity(${index})">Show Activity</button>
+                            <div id="activity-${index}" class="activity-content">
+                                <h4>Activity:</h4>
+                                <p>${vp.activity}</p>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+                document.getElementById('viewpoints').innerHTML = viewpointsHtml;
+            } catch (error) {
+                console.error('Error details:', error);
+                errorMessage.textContent = `Error: ${error.message}. Please check the console for more details.`;
+                document.getElementById('conundrum').textContent = 'An error occurred. Please try again.';
+            } finally {
+                loading.style.display = 'none';
+            }
+        }
+
+        function readFileAsDataURL(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = (error) => reject(new Error(`File reading error: ${error}`));
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function toggleActivity(index) {
+            const activityContent = document.getElementById(`activity-${index}`);
+            activityContent.style.display = activityContent.style.display === 'none' ? 'block' : 'none';
+        }
+
+        function assignConundrum() {
+            if (currentConundrum) {
+                const textSubmission = document.getElementById('text-submission').checked;
+                
+                currentConundrum.submissionType = textSubmission ? 'text' : 'video';
+
+                let assignments = JSON.parse(localStorage.getItem('assignments') || '[]');
+                assignments.push(currentConundrum);
+                localStorage.setItem('assignments', JSON.stringify(assignments));
+                alert('Conundrum assigned to students!');
+                loadStudentSubmissions();
+            } else {
+                alert('Please generate a conundrum first.');
+            }
+        }
+
+        function loadStudentSubmissions() {
+            const submissionsList = document.getElementById('submissions-list');
+            const submissions = JSON.parse(localStorage.getItem('studentSubmissions') || '[]');
+
+            if (submissions.length === 0) {
+                submissionsList.innerHTML = '<p>No submissions yet.</p>';
+                return;
+            }
+
+            submissionsList.innerHTML = submissions.map((submission, index) => `
+                <div class="submission">
+                    <h3>Submission ${index + 1}</h3>
+                    <p><strong>Student:</strong> ${submission.student}</p>
+                    <p><strong>Type:</strong> ${submission.type}</p>
+                    ${submission.type === 'text' 
+                        ? `<p><strong>Answer:</strong> ${submission.content}</p>`
+                        : `<video controls>
+                            <source src="${submission.content}" type="video/webm">
+                            Your browser does not support the video tag.
+                           </video>`
+                    }
+                </div>
+            `).join('');
+        }
+
+        document.getElementById('generateBtn').addEventListener('click', generateConundrum);
+
+        // Load student submissions when the page loads
+        window.onload = loadStudentSubmissions;
+    </script>
+</body>
+</html>
